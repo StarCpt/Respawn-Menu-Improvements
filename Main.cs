@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using VRage.Plugins;
 using HarmonyLib;
 
-namespace Alphabetical_Respawn_Menu
+namespace Respawn_Menu_Improvements
 {
     public class Main : IPlugin, IDisposable
     {

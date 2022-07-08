@@ -7,8 +7,8 @@
     <ProjectGuid>{4FB47D75-C4B0-4DF7-BF3F-A7172654CE1E}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Alphabetical_Respawn_Menu</RootNamespace>
-    <AssemblyName>Alphabetical Respawn Menu</AssemblyName>
+    <RootNamespace>Respawn_Menu_Improvements</RootNamespace>
+    <AssemblyName>Respawn Menu Improvements</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>

@@ -11,7 +11,7 @@ using SpaceEngineers.Game.GUI;
 using VRage;
 using VRageMath;
 
-namespace Alphabetical_Respawn_Menu
+namespace Respawn_Menu_Improvements
 {
     public class Patches
     {
