@@ -1,1 +1,1 @@
-﻿Orders respawn points alphabetically and adds a search box.
+﻿Sorts respawn points alphabetically and adds a search box.
