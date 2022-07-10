@@ -28,8 +28,7 @@ namespace RespawnMenuImprovements
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
 
-        [Flags]
-        private enum SortType : byte
+        private enum SortType
         {
             None = 0,
             NameAscending = 1,
@@ -40,41 +39,43 @@ namespace RespawnMenuImprovements
 
         public static void OnSearchBoxTextChanged(string newText)
         {
-            if (allRows != null && respawnsTable != null)
+            if (allRows == null || respawnsTable == null)
             {
-                SortList(ref allRows, sortStatus);
-                MyGuiControlTable.Row selectedRow = respawnsTable.SelectedRow;
+                return;
+            }
 
-                if (!String.IsNullOrWhiteSpace(newText))
+            allRows = SortList(allRows, sortStatus);
+            MyGuiControlTable.Row selectedRow = respawnsTable.SelectedRow;
+
+            if (!String.IsNullOrWhiteSpace(newText))
+            {
+                for (int i = 0; i < allRows.Count; i++)
                 {
-                    for (int i = 0; i < allRows.Count; i++)
+                    if (respawnsTable.Rows.Contains(allRows[i]))
                     {
-                        if (respawnsTable.Rows.Contains(allRows[i]))
-                        {
-                            respawnsTable.Remove(allRows[i]);
-                        }
-                        if (allRows[i].GetCell(0).Text.ToString().Contains(newText, StringComparison.OrdinalIgnoreCase))
-                        {
-                            respawnsTable.Insert(respawnsTable.Rows.Count, allRows[i]);
-                        }
+                        respawnsTable.Remove(allRows[i]);
                     }
-                }
-                else
-                {
-                    for (int i = 0; i < allRows.Count; i++)
+                    if (allRows[i].GetCell(0).Text.ToString().Contains(newText, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (respawnsTable.Rows.Contains(allRows[i]))
-                        {
-                            respawnsTable.Remove(allRows[i]);
-                        }
                         respawnsTable.Insert(respawnsTable.Rows.Count, allRows[i]);
                     }
                 }
-
-                if (selectedRow != null && respawnsTable.Rows.Contains(selectedRow))
+            }
+            else
+            {
+                for (int i = 0; i < allRows.Count; i++)
                 {
-                    respawnsTable.SelectedRow = selectedRow;
+                    if (respawnsTable.Rows.Contains(allRows[i]))
+                    {
+                        respawnsTable.Remove(allRows[i]);
+                    }
+                    respawnsTable.Insert(respawnsTable.Rows.Count, allRows[i]);
                 }
+            }
+
+            if (selectedRow != null && respawnsTable.Rows.Contains(selectedRow))
+            {
+                respawnsTable.SelectedRow = selectedRow;
             }
         }
 
@@ -133,31 +134,16 @@ namespace RespawnMenuImprovements
 
         private static void SortRespawnsTable(MyGuiControlTable table, SortType type, bool firstAdd = false)
         {
+            if (type == SortType.None)
+            {
+                return;
+            }
+
             MyGuiControlTable.Row selectedRow = table.SelectedRow;
             sortStatus = type;
             lastTableSortedTime = DateTime.UtcNow;
-            List<MyGuiControlTable.Row> ordered;
-
-            if (type == SortType.NameAscending)
-            {
-                ordered = table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo).OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
-                SortInternal();
-            }
-            else if (type == SortType.NameDescending)
-            {
-                ordered = table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo).OrderByDescending(i => i.GetCell(0).Text.ToString()).ToList();
-                SortInternal();
-            }
-            else if (type == SortType.OwnerAscending)
-            {
-                ordered = table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo).OrderBy(i => i.GetCell(1).Text.ToString()).ThenBy(i => i.GetCell(0).Text.ToString()).ToList();
-                SortInternal();
-            }
-            else if (type == SortType.OwnerDescending)
-            {
-                ordered = table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo).OrderByDescending(i => i.GetCell(1).Text.ToString()).ThenByDescending(i => i.GetCell(0).Text.ToString()).ToList();
-                SortInternal();
-            }
+            List<MyGuiControlTable.Row> ordered = SortList(table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), type);
+            SortInternal();
 
             void SortInternal()
             {
@@ -177,24 +163,27 @@ namespace RespawnMenuImprovements
             }
         }
 
-        private static void SortList(ref List<MyGuiControlTable.Row> list, SortType type)
+        private static List<MyGuiControlTable.Row> SortList(IEnumerable<MyGuiControlTable.Row> list, SortType type)
         {
-            sortStatus = type;
             if (type == SortType.NameAscending)
             {
-                list = list.OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
+                return list.OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
             }
             else if (type == SortType.NameDescending)
             {
-                list = list.OrderByDescending(i => i.GetCell(0).Text.ToString()).ToList();
+                return list.OrderByDescending(i => i.GetCell(0).Text.ToString()).ToList();
             }
             else if (type == SortType.OwnerAscending)
             {
-                list = list.OrderBy(i => i.GetCell(1).Text.ToString()).ThenBy(i => i.GetCell(0).Text.ToString()).ToList();
+                return list.OrderBy(i => i.GetCell(1).Text.ToString()).ThenBy(i => i.GetCell(0).Text.ToString()).ToList();
             }
             else if (type == SortType.OwnerDescending)
             {
-                list = list.OrderByDescending(i => i.GetCell(1).Text.ToString()).ThenByDescending(i => i.GetCell(0).Text.ToString()).ToList();
+                return list.OrderByDescending(i => i.GetCell(1).Text.ToString()).ThenByDescending(i => i.GetCell(0).Text.ToString()).ToList();
+            }
+            else
+            {
+                return list.ToList();
             }
         }
 
@@ -228,7 +217,7 @@ namespace RespawnMenuImprovements
                 ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
                 if (___m_respawnsTable.RowsCount > 0)
                 {
-                    allRows = ___m_respawnsTable.Rows.OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
+                    allRows = SortList(___m_respawnsTable.Rows, SortType.NameAscending);
                     allRows.ForEach(r => r.GetCell(1).Text.Clear().Append(GetOwnerDisplayName(((MySpaceRespawnComponent.MyRespawnPointInfo)r.UserData).OwnerId)));
                     if (searchBox != null && !String.IsNullOrWhiteSpace(searchBox.TextBox.Text))
                     {
