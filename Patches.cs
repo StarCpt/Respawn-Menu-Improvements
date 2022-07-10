@@ -229,6 +229,7 @@ namespace RespawnMenuImprovements
                 if (___m_respawnsTable.RowsCount > 0)
                 {
                     allRows = ___m_respawnsTable.Rows.OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
+                    allRows.ForEach(r => r.GetCell(1).Text.Clear().Append(GetOwnerDisplayName(((MySpaceRespawnComponent.MyRespawnPointInfo)r.UserData).OwnerId)));
                     if (searchBox != null && !String.IsNullOrWhiteSpace(searchBox.TextBox.Text))
                     {
                         for (int i = 0; i < ___m_respawnsTable.RowsCount;)
