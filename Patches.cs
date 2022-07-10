@@ -28,8 +28,7 @@ namespace RespawnMenuImprovements
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
 
-        [Flags]
-        private enum SortType : byte
+        private enum SortType
         {
             None = 0,
             NameAscending = 1,
@@ -133,6 +132,11 @@ namespace RespawnMenuImprovements
 
         private static void SortRespawnsTable(MyGuiControlTable table, SortType type, bool firstAdd = false)
         {
+            if (table == null)
+            {
+                return;
+            }
+
             MyGuiControlTable.Row selectedRow = table.SelectedRow;
             sortStatus = type;
             lastTableSortedTime = DateTime.UtcNow;
@@ -259,10 +263,15 @@ namespace RespawnMenuImprovements
         {
             public static void Postfix()
             {
-                searchBox.OnTextChanged -= OnSearchBoxTextChanged;
-                respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
-                respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
-                respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                try
+                {
+                    searchBox.OnTextChanged -= OnSearchBoxTextChanged;
+                    respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                }
+                catch { }
+
                 searchBox = null;
                 respawnsTable = null;
                 allRows = null;
