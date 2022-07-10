@@ -134,7 +134,7 @@ namespace RespawnMenuImprovements
 
         private static void SortRespawnsTable(MyGuiControlTable table, SortType type, bool firstAdd = false)
         {
-            if (type == SortType.None)
+            if (table == null || type == SortType.None)
             {
                 return;
             }
@@ -248,10 +248,15 @@ namespace RespawnMenuImprovements
         {
             public static void Postfix()
             {
-                searchBox.OnTextChanged -= OnSearchBoxTextChanged;
-                respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
-                respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
-                respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                try
+                {
+                    searchBox.OnTextChanged -= OnSearchBoxTextChanged;
+                    respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                }
+                catch { }
+
                 searchBox = null;
                 respawnsTable = null;
                 allRows = null;
