@@ -16,7 +16,7 @@ using SpaceEngineers.Game.World;
 using VRage;
 using VRageMath;
 
-namespace Respawn_Menu_Improvements
+namespace RespawnMenuImprovements
 {
     public class Patches
     {
@@ -28,7 +28,8 @@ namespace Respawn_Menu_Improvements
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
 
-        private enum SortType
+        [Flags]
+        private enum SortType : byte
         {
             None = 0,
             NameAscending = 1,
@@ -91,6 +92,7 @@ namespace Respawn_Menu_Improvements
             if (row.UserData is MySpaceRespawnComponent.MyRespawnPointInfo medicalRoom)
             {
                 bool isRestricted = m_restrictedRespawn == 0L || medicalRoom.MedicalRoomId == m_restrictedRespawn;
+                respawnPointTooltip.AppendLine(medicalRoom.MedicalRoomName);
                 respawnPointTooltip.Append("Status: " + (isRestricted ? MyTexts.Get(MySpaceTexts.ScreenMedicals_RespawnShipReady) : MyTexts.Get(MySpaceTexts.ScreenMedicals_RespawnShipNotReady)));
                 respawnsTable.SetToolTip(respawnPointTooltip.ToString());
             }
@@ -239,17 +241,9 @@ namespace Respawn_Menu_Improvements
                         }
                     }
 
-                    ___m_respawnsTable.SetColumnName(0, new StringBuilder("Name"));
-                    ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));
+                    //___m_respawnsTable.SetColumnName(0, new StringBuilder("Name"));
+                    ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));//original: "Available in"
                     SortRespawnsTable(___m_respawnsTable, SortType.NameAscending, true);
-                    //List<MyGuiControlTable.Row> ordered = ___m_respawnsTable.Rows.OrderBy(i => i.GetCell(0).Text.ToString()).ToList();
-                    //for (int i = 0; i < ordered.Count; i++)
-                    //{
-                    //    ___m_respawnsTable.Remove(ordered[i]);
-                    //    ordered[i].GetCell(1).Text.Clear().Append(GetOwnerDisplayName(((MySpaceRespawnComponent.MyRespawnPointInfo)ordered[i].UserData).OwnerId));
-                    //    ___m_respawnsTable.Insert(i, ordered[i]);
-                    //}
-                    //sortStatus = SortType.NameAscending;
                 }
                 else
                 {
@@ -258,34 +252,6 @@ namespace Respawn_Menu_Improvements
 
             }
         }
-
-        /*
-        [HarmonyPatch(typeof(MyGuiScreenMedicals))]
-        public class DetailedInfoMedicalPatch
-        {
-            public static MethodBase TargetMethod()
-            {
-                return AccessTools.FirstMethod(typeof(MyGuiScreenMedicals),
-                    m => m.Name.Contains("UpdateDetailedInfo"));
-            }
-
-            public static void PostFix(MyGuiControlTable.Row row, MyGuiControlParent ___m_descriptionControl, long ___m_restrictedRespawn)
-            {
-                throw new Exception("is this working?");
-                //if (row != null && row.UserData != null && row.UserData is MySpaceRespawnComponent.MyRespawnPointInfo medicalRoom)
-                //{
-                //    StringBuilder ownerText = ((MyGuiControlLabel)___m_descriptionControl.Controls[0]).TextToDraw.Clear();
-                //    bool isRestricted = ___m_restrictedRespawn == 0L || medicalRoom.MedicalRoomId == ___m_restrictedRespawn;
-                //    ownerText.Append(MyTexts.GetString(MySpaceTexts.ScreenMedicals_Owner)).Append(isRestricted ? MyTexts.Get(MySpaceTexts.ScreenMedicals_RespawnShipReady) : MyTexts.Get(MySpaceTexts.ScreenMedicals_RespawnShipNotReady));
-                //    ownerText.AppendLine();
-                //    BuildOxygenLevelInfo(ownerText, medicalRoom.OxygenLevel);
-                //    ((MyGuiControlLabel)___m_descriptionControl.Controls[0]).TextToDraw = ownerText;
-                //    ((MyGuiControlLabel)___m_descriptionControl.Controls[0]).Update();
-                //    ___m_descriptionControl.Update();
-                //}
-            }
-        }
-        */
 
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "OnClosed")]
         public class OnClosedPatch

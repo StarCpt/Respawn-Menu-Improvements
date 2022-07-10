@@ -7,14 +7,13 @@ using System.Threading.Tasks;
 using VRage.Plugins;
 using HarmonyLib;
 
-namespace Respawn_Menu_Improvements
+namespace RespawnMenuImprovements
 {
-    public class Main : IPlugin, IDisposable
+    public class Main : IPlugin
     {
         public void Init(object gameInstance)
         {
-            Harmony harmony = new Harmony("RespawnMenuImprovements");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            new Harmony("RespawnMenuImprovements").PatchAll(Assembly.GetExecutingAssembly());
         }
 
         public void Update()
