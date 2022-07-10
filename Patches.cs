@@ -23,10 +23,11 @@ namespace RespawnMenuImprovements
         private static MyGuiControlSearchBox searchBox = null;
         private static MyGuiControlTable respawnsTable = null;
         private static List<MyGuiControlTable.Row> allRows = null;
-        private static StringBuilder respawnPointTooltip = new StringBuilder();
+        private static StringBuilder respawnPointTooltip { get; } = new StringBuilder();
         private static long m_restrictedRespawn = -1;
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
+        private static MyGuiControlCombobox playersFilterDropdown = null;
 
         private enum SortType
         {
@@ -45,38 +46,9 @@ namespace RespawnMenuImprovements
             }
 
             allRows = SortList(allRows, sortStatus);
-            MyGuiControlTable.Row selectedRow = respawnsTable.SelectedRow;
 
-            if (!String.IsNullOrWhiteSpace(newText))
-            {
-                for (int i = 0; i < allRows.Count; i++)
-                {
-                    if (respawnsTable.Rows.Contains(allRows[i]))
-                    {
-                        respawnsTable.Remove(allRows[i]);
-                    }
-                    if (allRows[i].GetCell(0).Text.ToString().Contains(newText, StringComparison.OrdinalIgnoreCase))
-                    {
-                        respawnsTable.Insert(respawnsTable.Rows.Count, allRows[i]);
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < allRows.Count; i++)
-                {
-                    if (respawnsTable.Rows.Contains(allRows[i]))
-                    {
-                        respawnsTable.Remove(allRows[i]);
-                    }
-                    respawnsTable.Insert(respawnsTable.Rows.Count, allRows[i]);
-                }
-            }
-
-            if (selectedRow != null && respawnsTable.Rows.Contains(selectedRow))
-            {
-                respawnsTable.SelectedRow = selectedRow;
-            }
+            ApplySearchFilter(respawnsTable, newText);
+            ApplyOwnerFilter(respawnsTable, playersFilterDropdown.GetSelectedKey());
         }
 
         private static StringBuilder GetOwnerDisplayName(long owner)
@@ -150,10 +122,6 @@ namespace RespawnMenuImprovements
                 for (int i = 0; i < ordered.Count; i++)
                 {
                     table.Remove(ordered[i]);
-                    if (firstAdd)
-                    {
-                        ordered[i].GetCell(1).Text.Clear().Append(GetOwnerDisplayName(((MySpaceRespawnComponent.MyRespawnPointInfo)ordered[i].UserData).OwnerId));
-                    }
                     table.Insert(table.RowsCount, ordered[i]);
                 }
                 if (selectedRow != null && table.Rows.Contains(selectedRow))
@@ -187,12 +155,83 @@ namespace RespawnMenuImprovements
             }
         }
 
+        private static void PlayersFilterDropdown_ItemSelected()
+        {
+            long selectedKey = playersFilterDropdown.GetSelectedKey();
+
+            if (searchBox == null)
+            {
+                return;
+            }
+
+            ApplySearchFilter(respawnsTable, searchBox.SearchText);
+            ApplyOwnerFilter(respawnsTable, selectedKey);
+        }
+
+        private static void ApplySearchFilter(MyGuiControlTable table, string searchTerm)
+        {
+            MyGuiControlTable.Row selectedRow = respawnsTable.SelectedRow;
+            if (String.IsNullOrWhiteSpace(searchTerm))
+            {
+                for (int i = 0; i < allRows.Count; i++)
+                {
+                    if (table.Rows.Contains(allRows[i]))
+                    {
+                        table.Remove(allRows[i]);
+                    }
+                    table.Insert(table.Rows.Count, allRows[i]);
+                }
+
+                if (selectedRow != null && table.Rows.Contains(selectedRow))
+                {
+                    table.SelectedRow = selectedRow;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < allRows.Count; i++)
+                {
+                    if (table.Rows.Contains(allRows[i]))
+                    {
+                        table.Remove(allRows[i]);
+                    }
+                    if (allRows[i].GetCell(0).Text.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                    {
+                        table.Insert(table.Rows.Count, allRows[i]);
+                    }
+                }
+            }
+
+            if (selectedRow != null && table.Rows.Contains(selectedRow))
+            {
+                table.SelectedRow = selectedRow;
+            }
+        }
+
+        private static void ApplyOwnerFilter(MyGuiControlTable table, long ownerId)
+        {
+            if (ownerId == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < table.RowsCount;)
+            {
+                if (table.Rows[i].UserData is MySpaceRespawnComponent.MyRespawnPointInfo userData && userData.OwnerId != ownerId)
+                {
+                    table.Remove(table.Rows[i]);
+                }
+                else i++;
+            }
+        }
+
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
         public class RecreateControlsRespawnPatch
         {
             public static void Postfix(MyGuiScreenMedicals __instance)
             {
-                searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
+                //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
+                searchBox = new MyGuiControlSearchBox(new Vector2(-0.07465f, 0.244f), new Vector2(0.21f, 0f));
                 searchBox.OnTextChanged += OnSearchBoxTextChanged;
 
                 __instance.Controls.Add(searchBox);
@@ -208,7 +247,7 @@ namespace RespawnMenuImprovements
                     m => m.Name.Contains("<RefreshMedicalRooms>g__AddMedicalRespawnPoints"));
             }
 
-            public static void Postfix(MyGuiControlTable ___m_respawnsTable, long ___m_restrictedRespawn)
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlTable ___m_respawnsTable, long ___m_restrictedRespawn)
             {
                 respawnsTable = ___m_respawnsTable;
                 m_restrictedRespawn = ___m_restrictedRespawn;
@@ -217,23 +256,53 @@ namespace RespawnMenuImprovements
                 ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
                 if (___m_respawnsTable.RowsCount > 0)
                 {
-                    allRows = SortList(___m_respawnsTable.Rows, SortType.NameAscending);
-                    allRows.ForEach(r => r.GetCell(1).Text.Clear().Append(GetOwnerDisplayName(((MySpaceRespawnComponent.MyRespawnPointInfo)r.UserData).OwnerId)));
-                    if (searchBox != null && !String.IsNullOrWhiteSpace(searchBox.TextBox.Text))
+                    allRows = SortList(___m_respawnsTable.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
+
+                    long selectedKey = 0;
+                    if (playersFilterDropdown != null)
                     {
-                        for (int i = 0; i < ___m_respawnsTable.RowsCount;)
-                        {
-                            if (!___m_respawnsTable.Rows[i].GetCell(0).Text.ToString().Contains(searchBox.TextBox.Text, StringComparison.OrdinalIgnoreCase))
-                            {
-                                ___m_respawnsTable.Remove(___m_respawnsTable.Rows[i]);
-                            }
-                            else i++;
-                        }
+                        __instance.RemoveControl(playersFilterDropdown);
+                        selectedKey = playersFilterDropdown.GetSelectedKey();
+                        playersFilterDropdown.ClearItems();
                     }
+                    else
+                    {
+                        playersFilterDropdown = new MyGuiControlCombobox(new Vector2(0.10760f, 0.248f), new Vector2(0.146f, 0.1f));
+                        playersFilterDropdown.ItemSelected += PlayersFilterDropdown_ItemSelected;
+                    }
+
+                    playersFilterDropdown.AddItem(0L, "No Filter");
+
+                    for (int i = 0; i < allRows.Count; i++)
+                    {
+                        var data = (MySpaceRespawnComponent.MyRespawnPointInfo)allRows[i].UserData;
+                        var ownerDisplayName = GetOwnerDisplayName(data.OwnerId);
+
+                        if (playersFilterDropdown.TryGetItemByKey(data.OwnerId) == null)
+                        {
+                            playersFilterDropdown.AddItem(data.OwnerId, ownerDisplayName);
+                        }
+
+                        allRows[i].GetCell(1).Text.Clear().Append(ownerDisplayName);
+                    }
+
+                    if (playersFilterDropdown.TryGetItemByKey(selectedKey) != null)
+                    {
+                        playersFilterDropdown.SelectItemByKey(selectedKey);
+                    }
+
+                    __instance.AddControl(playersFilterDropdown);
+
+                    if (searchBox != null)
+                    {
+                        ApplySearchFilter(___m_respawnsTable, searchBox.SearchText);
+                    }
+
+                    ApplyOwnerFilter(___m_respawnsTable, selectedKey);
 
                     //___m_respawnsTable.SetColumnName(0, new StringBuilder("Name"));
                     ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));//original: "Available in"
-                    SortRespawnsTable(___m_respawnsTable, SortType.NameAscending, true);
+                    SortRespawnsTable(___m_respawnsTable, sortStatus != SortType.None ? sortStatus : SortType.NameAscending, true);
                 }
                 else
                 {
@@ -254,6 +323,7 @@ namespace RespawnMenuImprovements
                     respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
                     respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
                     respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                    playersFilterDropdown.ItemSelected -= PlayersFilterDropdown_ItemSelected;
                 }
                 catch { }
 
@@ -262,6 +332,7 @@ namespace RespawnMenuImprovements
                 allRows = null;
                 m_restrictedRespawn = -1;
                 sortStatus = SortType.None;
+                playersFilterDropdown = null;
             }
         }
     }
