@@ -28,8 +28,7 @@ namespace RespawnMenuImprovements
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
 
-        [Flags]
-        private enum SortType : byte
+        private enum SortType
         {
             None = 0,
             NameAscending = 1,
