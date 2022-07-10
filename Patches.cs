@@ -45,7 +45,8 @@ namespace RespawnMenuImprovements
                 return;
             }
 
-            allRows = SortList(allRows, sortStatus);
+            //allRows = SortList(allRows, sortStatus);
+            SortListInPlace(allRows, sortStatus);
 
             ApplySearchFilter(respawnsTable, newText);
             ApplyOwnerFilter(respawnsTable, playersFilterDropdown.GetSelectedKey());
@@ -104,7 +105,7 @@ namespace RespawnMenuImprovements
             }
         }
 
-        private static void SortRespawnsTable(MyGuiControlTable table, SortType type, bool firstAdd = false)
+        private static void SortRespawnsTable(MyGuiControlTable table, SortType type)
         {
             if (table == null || type == SortType.None)
             {
@@ -155,16 +156,41 @@ namespace RespawnMenuImprovements
             }
         }
 
+        private static void SortListInPlace(List<MyGuiControlTable.Row> list, SortType type)
+        {
+            if (type == SortType.NameAscending)
+            {
+                list.Sort((x, y) => x.GetCell(0).Text.ToString().CompareTo(y.GetCell(0).Text.ToString()));
+            }
+            else if (type == SortType.NameDescending)
+            {
+                list.Sort((y, x) => x.GetCell(0).Text.ToString().CompareTo(y.GetCell(0).Text.ToString()));
+            }
+            else if (type == SortType.OwnerAscending)
+            {
+                list.Sort((x, y) =>
+                {
+                    int result = x.GetCell(1).Text.ToString().CompareTo(y.GetCell(1).Text.ToString());
+                    if (result != 0) return result;
+                    else return x.GetCell(0).Text.ToString().CompareTo(y.GetCell(0).Text.ToString());
+                });
+            }
+            else if (type == SortType.OwnerDescending)
+            {
+                list.Sort((y, x) =>
+                {
+                    int result = x.GetCell(1).Text.ToString().CompareTo(y.GetCell(1).Text.ToString());
+                    if (result != 0) return result;
+                    else return x.GetCell(0).Text.ToString().CompareTo(y.GetCell(0).Text.ToString());
+                });
+            }
+        }
+
         private static void PlayersFilterDropdown_ItemSelected()
         {
             long selectedKey = playersFilterDropdown.GetSelectedKey();
 
-            if (searchBox == null)
-            {
-                return;
-            }
-
-            ApplySearchFilter(respawnsTable, searchBox.SearchText);
+            if (searchBox != null) ApplySearchFilter(respawnsTable, searchBox.SearchText);
             ApplyOwnerFilter(respawnsTable, selectedKey);
         }
 
@@ -271,20 +297,28 @@ namespace RespawnMenuImprovements
                         playersFilterDropdown.ItemSelected += PlayersFilterDropdown_ItemSelected;
                     }
 
-                    playersFilterDropdown.AddItem(0L, "No Filter");
+                    playersFilterDropdown.AddItem(0L, "No Filter", sortOrder: 0, sort: false);
 
                     for (int i = 0; i < allRows.Count; i++)
                     {
                         var data = (MySpaceRespawnComponent.MyRespawnPointInfo)allRows[i].UserData;
+                        var ownerFaction = MySession.Static.Factions.TryGetPlayerFaction(data.OwnerId);
                         var ownerDisplayName = GetOwnerDisplayName(data.OwnerId);
 
                         if (playersFilterDropdown.TryGetItemByKey(data.OwnerId) == null)
                         {
-                            playersFilterDropdown.AddItem(data.OwnerId, ownerDisplayName);
+                            playersFilterDropdown.AddItem(data.OwnerId, ownerDisplayName, toolTip: ownerFaction != null ? ownerFaction.Tag + " " + ownerFaction.Name : "No Faction");
                         }
 
                         allRows[i].GetCell(1).Text.Clear().Append(ownerDisplayName);
                     }
+
+                    playersFilterDropdown.CustomSortItems((x, y) =>
+                    {
+                        if (x.Key == 0) return -1;
+                        else if (y.Key == 0) return 1;
+                        else return x.Value.ToString().CompareTo(y.Value.ToString());
+                    });
 
                     if (playersFilterDropdown.TryGetItemByKey(selectedKey) != null)
                     {
@@ -293,16 +327,11 @@ namespace RespawnMenuImprovements
 
                     __instance.AddControl(playersFilterDropdown);
 
-                    if (searchBox != null)
-                    {
-                        ApplySearchFilter(___m_respawnsTable, searchBox.SearchText);
-                    }
-
+                    if (searchBox != null) ApplySearchFilter(___m_respawnsTable, searchBox.SearchText);
                     ApplyOwnerFilter(___m_respawnsTable, selectedKey);
 
-                    //___m_respawnsTable.SetColumnName(0, new StringBuilder("Name"));
                     ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));//original: "Available in"
-                    SortRespawnsTable(___m_respawnsTable, sortStatus != SortType.None ? sortStatus : SortType.NameAscending, true);
+                    SortRespawnsTable(___m_respawnsTable, sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
                 }
                 else
                 {
