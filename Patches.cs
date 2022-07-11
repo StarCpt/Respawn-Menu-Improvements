@@ -24,7 +24,7 @@ namespace RespawnMenuImprovements
         private static MyGuiControlTable respawnsTable = null;
         private static List<MyGuiControlTable.Row> allRows = null;
         private static StringBuilder respawnPointTooltip { get; } = new StringBuilder();
-        private static long m_restrictedRespawn = -1;
+        private static long m_restrictedRespawn = -1L;
         private static SortType sortStatus = SortType.None;
         private static DateTime lastTableSortedTime = DateTime.MinValue;
         private static MyGuiControlCombobox playersFilterDropdown = null;
@@ -38,6 +38,139 @@ namespace RespawnMenuImprovements
             OwnerDescending = 8,
         }
 
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
+        public class RecreateControlsRespawnPatch
+        {
+            public static void Postfix(MyGuiScreenMedicals __instance)
+            {
+                //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
+                searchBox = new MyGuiControlSearchBox(new Vector2(-0.07465f, 0.244f), new Vector2(0.21f, 0f));
+                searchBox.OnTextChanged += OnSearchBoxTextChanged;
+
+                __instance.Controls.Add(searchBox);
+            }
+        }
+
+        [HarmonyPatch(typeof(MyGuiScreenMedicals))]
+        public class AddRespawnPointsPatch
+        {
+            public static MethodBase TargetMethod()
+            {
+                return AccessTools.FirstMethod(typeof(MyGuiScreenMedicals),
+                    m => m.Name.Contains("<RefreshMedicalRooms>g__AddMedicalRespawnPoints"));
+            }
+
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlTable ___m_respawnsTable, long ___m_restrictedRespawn)
+            {
+                respawnsTable = ___m_respawnsTable;
+                m_restrictedRespawn = ___m_restrictedRespawn;
+                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
+                if (___m_respawnsTable.RowsCount > 0)
+                {
+                    allRows = SortList(___m_respawnsTable.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
+
+                    long selectedKey = 0L;
+                    if (playersFilterDropdown != null)
+                    {
+                        __instance.RemoveControl(playersFilterDropdown);
+                        selectedKey = playersFilterDropdown.GetSelectedKey();
+                        playersFilterDropdown.ClearItems();
+                    }
+                    else
+                    {
+                        playersFilterDropdown = new MyGuiControlCombobox(new Vector2(0.10760f, 0.248f), new Vector2(0.146f, 0.1f));
+                        playersFilterDropdown.ItemSelected += PlayersFilterDropdown_ItemSelected;
+                    }
+
+                    playersFilterDropdown.AddItem(0L, "No Filter");
+
+                    for (int i = 0; i < allRows.Count; i++)
+                    {
+                        var data = (MySpaceRespawnComponent.MyRespawnPointInfo)allRows[i].UserData;
+                        var ownerFaction = MySession.Static.Factions.TryGetPlayerFaction(data.OwnerId);
+                        var ownerDisplayName = GetOwnerDisplayName(data.OwnerId);
+
+                        if (playersFilterDropdown.TryGetItemByKey(data.OwnerId) == null)
+                        {
+                            playersFilterDropdown.AddItem(data.OwnerId, ownerDisplayName, toolTip: ownerFaction != null ? $"{ownerFaction.Tag} {ownerFaction.Name}" : "No Faction");
+                        }
+
+                        allRows[i].GetCell(1).Text.Clear().Append(ownerDisplayName);
+                    }
+
+                    playersFilterDropdown.CustomSortItems((x, y) =>
+                    {
+                        if (x.Key == 0) return -1;
+                        else if (y.Key == 0) return 1;
+                        else if (x.Key == MySession.Static.LocalPlayerId) return -1;
+                        else if (y.Key == MySession.Static.LocalPlayerId) return 1;
+                        else return x.Value.ToString().CompareTo(y.Value.ToString());
+                    });
+
+                    if (playersFilterDropdown.TryGetItemByKey(selectedKey) != null)
+                    {
+                        playersFilterDropdown.SelectItemByKey(selectedKey, false);
+                    }
+                    else playersFilterDropdown.SelectItemByKey(0, false);
+
+                    __instance.AddControl(playersFilterDropdown);
+
+                    if (searchBox != null) 
+                        ApplySearchFilter(___m_respawnsTable, searchBox.SearchText);
+                    ApplyOwnerFilter(___m_respawnsTable, selectedKey);
+
+                    ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));//original: "Available in"
+                    SortRespawnsTable(___m_respawnsTable, sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
+                }
+                else
+                {
+                    allRows = null;
+                }
+
+            }
+        }
+
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "OnClosed")]
+        public class OnClosedPatch
+        {
+            public static void Postfix()
+            {
+                try
+                {
+                    searchBox.OnTextChanged -= OnSearchBoxTextChanged;
+                    respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
+                    respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
+                    playersFilterDropdown.ItemSelected -= PlayersFilterDropdown_ItemSelected;
+                }
+                catch { }
+
+                searchBox = null;
+                respawnsTable = null;
+                allRows = null;
+                m_restrictedRespawn = -1;
+                sortStatus = SortType.None;
+                playersFilterDropdown = null;
+
+            }
+        }
+
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RespawnAtMedicalRoom")]
+        public class RespawnAtMedicalRoomPatch
+        {
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlButton ___m_respawnButton)
+            {
+                searchBox.Enabled = false;
+                playersFilterDropdown.Enabled = false;
+
+                Vector2 m_size = new Vector2(0.4f, 0.9f);
+                __instance.AddControl(new MyGuiControlButton(new Vector2(-0.09f, (float)(m_size.Y / 2.0 - 0.100000001490116)), toolTip: "Forcibly closes the respawn menu and sets\nthe camera to your character if it exists", text: MyTexts.Get(MySpaceTexts.DetailScreen_Button_Close), onButtonClick: OnAbortBtnClick));
+                //__instance.AddControl(new MyGuiControlButton(new Vector2(0.095f, (float)(m_size.Y / 2.0 - 0.100000001490116)), text: new StringBuilder("Refresh")));
+            }
+        }
+
         public static void OnSearchBoxTextChanged(string newText)
         {
             if (allRows == null || respawnsTable == null)
@@ -45,7 +178,6 @@ namespace RespawnMenuImprovements
                 return;
             }
 
-            //allRows = SortList(allRows, sortStatus);
             SortListInPlace(allRows, sortStatus);
 
             ApplySearchFilter(respawnsTable, newText);
@@ -190,7 +322,8 @@ namespace RespawnMenuImprovements
         {
             long selectedKey = playersFilterDropdown.GetSelectedKey();
 
-            if (searchBox != null) ApplySearchFilter(respawnsTable, searchBox.SearchText);
+            if (searchBox != null)
+                ApplySearchFilter(respawnsTable, searchBox.SearchText);
             ApplyOwnerFilter(respawnsTable, selectedKey);
         }
 
@@ -251,118 +384,14 @@ namespace RespawnMenuImprovements
             }
         }
 
-        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
-        public class RecreateControlsRespawnPatch
+        public static void OnAbortBtnClick(MyGuiControlButton btn)
         {
-            public static void Postfix(MyGuiScreenMedicals __instance)
+            MySpaceRespawnComponent.Static.CloseRespawnScreen();
+            if (MyAPIGateway.Session.Player.Character != null)
             {
-                //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
-                searchBox = new MyGuiControlSearchBox(new Vector2(-0.07465f, 0.244f), new Vector2(0.21f, 0f));
-                searchBox.OnTextChanged += OnSearchBoxTextChanged;
-
-                __instance.Controls.Add(searchBox);
+                MyAPIGateway.Session.SetCameraController(VRage.Game.MyCameraControllerEnum.Entity, MyAPIGateway.Session.Player.Character);
             }
-        }
-
-        [HarmonyPatch(typeof(MyGuiScreenMedicals))]
-        public class AddRespawnPointsPatch
-        {
-            public static MethodBase TargetMethod()
-            {
-                return AccessTools.FirstMethod(typeof(MyGuiScreenMedicals),
-                    m => m.Name.Contains("<RefreshMedicalRooms>g__AddMedicalRespawnPoints"));
-            }
-
-            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlTable ___m_respawnsTable, long ___m_restrictedRespawn)
-            {
-                respawnsTable = ___m_respawnsTable;
-                m_restrictedRespawn = ___m_restrictedRespawn;
-                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
-                if (___m_respawnsTable.RowsCount > 0)
-                {
-                    allRows = SortList(___m_respawnsTable.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
-
-                    long selectedKey = 0;
-                    if (playersFilterDropdown != null)
-                    {
-                        __instance.RemoveControl(playersFilterDropdown);
-                        selectedKey = playersFilterDropdown.GetSelectedKey();
-                        playersFilterDropdown.ClearItems();
-                    }
-                    else
-                    {
-                        playersFilterDropdown = new MyGuiControlCombobox(new Vector2(0.10760f, 0.248f), new Vector2(0.146f, 0.1f));
-                        playersFilterDropdown.ItemSelected += PlayersFilterDropdown_ItemSelected;
-                    }
-
-                    playersFilterDropdown.AddItem(0L, "No Filter", sortOrder: 0, sort: false);
-
-                    for (int i = 0; i < allRows.Count; i++)
-                    {
-                        var data = (MySpaceRespawnComponent.MyRespawnPointInfo)allRows[i].UserData;
-                        var ownerFaction = MySession.Static.Factions.TryGetPlayerFaction(data.OwnerId);
-                        var ownerDisplayName = GetOwnerDisplayName(data.OwnerId);
-
-                        if (playersFilterDropdown.TryGetItemByKey(data.OwnerId) == null)
-                        {
-                            playersFilterDropdown.AddItem(data.OwnerId, ownerDisplayName, toolTip: ownerFaction != null ? ownerFaction.Tag + " " + ownerFaction.Name : "No Faction");
-                        }
-
-                        allRows[i].GetCell(1).Text.Clear().Append(ownerDisplayName);
-                    }
-
-                    playersFilterDropdown.CustomSortItems((x, y) =>
-                    {
-                        if (x.Key == 0) return -1;
-                        else if (y.Key == 0) return 1;
-                        else return x.Value.ToString().CompareTo(y.Value.ToString());
-                    });
-
-                    if (playersFilterDropdown.TryGetItemByKey(selectedKey) != null)
-                    {
-                        playersFilterDropdown.SelectItemByKey(selectedKey);
-                    }
-
-                    __instance.AddControl(playersFilterDropdown);
-
-                    if (searchBox != null) ApplySearchFilter(___m_respawnsTable, searchBox.SearchText);
-                    ApplyOwnerFilter(___m_respawnsTable, selectedKey);
-
-                    ___m_respawnsTable.SetColumnName(1, new StringBuilder("Owner"));//original: "Available in"
-                    SortRespawnsTable(___m_respawnsTable, sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
-                }
-                else
-                {
-                    allRows = null;
-                }
-
-            }
-        }
-
-        [HarmonyPatch(typeof(MyGuiScreenMedicals), "OnClosed")]
-        public class OnClosedPatch
-        {
-            public static void Postfix()
-            {
-                try
-                {
-                    searchBox.OnTextChanged -= OnSearchBoxTextChanged;
-                    respawnsTable.ItemMouseOver -= OnRespawnTableItemMouseOver;
-                    respawnsTable.ItemFocus -= OnRespawnTableItemMouseOver;
-                    respawnsTable.ColumnClicked -= OnRespawnTableColumnClicked;
-                    playersFilterDropdown.ItemSelected -= PlayersFilterDropdown_ItemSelected;
-                }
-                catch { }
-
-                searchBox = null;
-                respawnsTable = null;
-                allRows = null;
-                m_restrictedRespawn = -1;
-                sortStatus = SortType.None;
-                playersFilterDropdown = null;
-            }
+            btn.Enabled = false;
         }
     }
 }
