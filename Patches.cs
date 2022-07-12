@@ -44,7 +44,7 @@ namespace RespawnMenuImprovements
             public static void Postfix(MyGuiScreenMedicals __instance)
             {
                 //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
-                searchBox = new MyGuiControlSearchBox(new Vector2(-0.07465f, 0.244f), new Vector2(0.21f, 0f));
+                searchBox = new MyGuiControlSearchBox(new Vector2(-0.0745f, 0.244f), new Vector2(0.21f, 0f));
                 searchBox.OnTextChanged += OnSearchBoxTextChanged;
 
                 __instance.Controls.Add(searchBox);
@@ -80,7 +80,7 @@ namespace RespawnMenuImprovements
                     }
                     else
                     {
-                        playersFilterDropdown = new MyGuiControlCombobox(new Vector2(0.10760f, 0.248f), new Vector2(0.146f, 0.1f));
+                        playersFilterDropdown = new MyGuiControlCombobox(new Vector2(0.107f, 0.248f), new Vector2(0.146f, 0.1f));
                         playersFilterDropdown.ItemSelected += PlayersFilterDropdown_ItemSelected;
                     }
 
@@ -153,6 +153,7 @@ namespace RespawnMenuImprovements
                 m_restrictedRespawn = -1;
                 sortStatus = SortType.None;
                 playersFilterDropdown = null;
+                respawnPointTooltip.Clear();
 
             }
         }
@@ -171,7 +172,7 @@ namespace RespawnMenuImprovements
             }
         }
 
-        public static void OnSearchBoxTextChanged(string newText)
+        private static void OnSearchBoxTextChanged(string newText)
         {
             if (allRows == null || respawnsTable == null)
             {
@@ -386,12 +387,12 @@ namespace RespawnMenuImprovements
 
         public static void OnAbortBtnClick(MyGuiControlButton btn)
         {
-            MySpaceRespawnComponent.Static.CloseRespawnScreen();
             if (MyAPIGateway.Session.Player.Character != null)
             {
+                MySpaceRespawnComponent.Static.CloseRespawnScreen();
                 MyAPIGateway.Session.SetCameraController(VRage.Game.MyCameraControllerEnum.Entity, MyAPIGateway.Session.Player.Character);
+                btn.Enabled = false;
             }
-            btn.Enabled = false;
         }
     }
 }
