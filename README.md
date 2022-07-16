@@ -1,6 +1,6 @@
 ﻿**Features:**
-- Ability to sort the respawn points in ascending or descending order by spawn name or owner name
 - Adds a search box for spawn names
+- Adds the ability to sort list by spawn name or owner in ascending or descending order
+- Replaces the "Ready" text with owner name (Ready status is still viewable in the tooltip)
 - Shows full spawn name in the tooltip
-- Shows owner name instead of the "Ready" text (only for medical rooms and survival kits). 
-ready/not ready text is moved to the tooltip of the spawn.
+- Dropdown menu to filter by owner
