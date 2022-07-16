@@ -14,6 +14,7 @@ using Sandbox.ModAPI;
 using SpaceEngineers.Game.GUI;
 using SpaceEngineers.Game.World;
 using VRage;
+using VRage.Game;
 using VRageMath;
 
 namespace RespawnMenuImprovements
@@ -161,13 +162,13 @@ namespace RespawnMenuImprovements
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RespawnAtMedicalRoom")]
         public class RespawnAtMedicalRoomPatch
         {
-            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlButton ___m_respawnButton)
+            public static void Postfix(MyGuiScreenMedicals __instance)
             {
                 searchBox.Enabled = false;
                 playersFilterDropdown.Enabled = false;
 
                 Vector2 m_size = new Vector2(0.4f, 0.9f);
-                __instance.AddControl(new MyGuiControlButton(new Vector2(-0.09f, (float)(m_size.Y / 2.0 - 0.100000001490116)), toolTip: "Forcibly closes the respawn menu and sets\nthe camera to your character if it exists", text: MyTexts.Get(MySpaceTexts.DetailScreen_Button_Close), onButtonClick: OnAbortBtnClick));
+                __instance.AddControl(new MyGuiControlButton(new Vector2(-0.09f, (float)(m_size.Y / 2.0 - 0.100000001490116)), toolTip: "Try to forcibly close the respawn menu\nand set the camera to your character", text: MyTexts.Get(MySpaceTexts.DetailScreen_Button_Close), onButtonClick: OnAbortBtnClick));
                 //__instance.AddControl(new MyGuiControlButton(new Vector2(0.095f, (float)(m_size.Y / 2.0 - 0.100000001490116)), text: new StringBuilder("Refresh")));
             }
         }
@@ -387,12 +388,13 @@ namespace RespawnMenuImprovements
 
         public static void OnAbortBtnClick(MyGuiControlButton btn)
         {
-            if (MyAPIGateway.Session.Player.Character != null)
+            if (MyAPIGateway.Session.LocalHumanPlayer?.Character != null)
             {
+                MyAPIGateway.Session.SetCameraController(MyCameraControllerEnum.Entity, MyAPIGateway.Session.LocalHumanPlayer.Character);
                 MySpaceRespawnComponent.Static.CloseRespawnScreen();
-                MyAPIGateway.Session.SetCameraController(VRage.Game.MyCameraControllerEnum.Entity, MyAPIGateway.Session.Player.Character);
                 btn.Enabled = false;
             }
         }
+
     }
 }
