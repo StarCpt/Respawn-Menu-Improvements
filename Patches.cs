@@ -52,7 +52,7 @@ namespace RespawnMenuImprovements
             }
         }
 
-        [HarmonyPatch(typeof(MyGuiScreenMedicals))]
+        [HarmonyPatch]
         public class AddRespawnPointsPatch
         {
             public static MethodBase TargetMethod()
