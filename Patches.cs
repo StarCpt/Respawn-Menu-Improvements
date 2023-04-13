@@ -26,10 +26,9 @@ namespace RespawnMenuImprovements
         private static MyGuiControlSearchBox searchBox = null;
         private static MyGuiControlTable respawnsTable = null;
         private static List<MyGuiControlTable.Row> allRows = null;
-        private static StringBuilder respawnPointTooltip { get; } = new StringBuilder();
+        private static readonly StringBuilder respawnPointTooltip = new StringBuilder();
         private static long m_restrictedRespawn = -1L;
         private static SortType sortStatus = SortType.None;
-        private static DateTime lastTableSortedTime = DateTime.MinValue;
         private static MyGuiControlCombobox playersFilterDropdown = null;
 
         private enum SortType
@@ -96,12 +95,16 @@ namespace RespawnMenuImprovements
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
         public static class Patch_MyGuiScreenMedicals_RecreateControlsRespawn
         {
-            public static void Postfix(MyGuiScreenMedicals __instance)
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlTable ___m_respawnsTable)
             {
                 searchBox = new MyGuiControlSearchBox(new Vector2(-0.0745f, 0.244f), new Vector2(0.21f, 0f));
                 searchBox.OnTextChanged += OnSearchBoxTextChanged;
 
                 __instance.Controls.Add(searchBox);
+
+                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
             }
         }
 
@@ -118,9 +121,7 @@ namespace RespawnMenuImprovements
             {
                 respawnsTable = ___m_respawnsTable;
                 m_restrictedRespawn = ___m_restrictedRespawn;
-                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
+                
                 if (___m_respawnsTable.RowsCount > 0)
                 {
                     allRows = SortList(___m_respawnsTable.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
@@ -265,29 +266,26 @@ namespace RespawnMenuImprovements
 
         private static void OnRespawnTableColumnClicked(MyGuiControlTable table, int columnIndex)
         {
-            if ((DateTime.UtcNow - lastTableSortedTime).TotalMilliseconds > 10)
+            if (columnIndex == 0)
             {
-                if (columnIndex == 0)
+                if (sortStatus == SortType.NameAscending)
                 {
-                    if (sortStatus == SortType.NameAscending)
-                    {
-                        SortRespawnsTable(table, SortType.NameDescending);
-                    }
-                    else
-                    {
-                        SortRespawnsTable(table, SortType.NameAscending);
-                    }
+                    SortRespawnsTable(table, SortType.NameDescending);
                 }
-                else if (columnIndex == 1)
+                else
                 {
-                    if (sortStatus == SortType.OwnerAscending)
-                    {
-                        SortRespawnsTable(table, SortType.OwnerDescending);
-                    }
-                    else
-                    {
-                        SortRespawnsTable(table, SortType.OwnerAscending);
-                    }
+                    SortRespawnsTable(table, SortType.NameAscending);
+                }
+            }
+            else if (columnIndex == 1)
+            {
+                if (sortStatus == SortType.OwnerAscending)
+                {
+                    SortRespawnsTable(table, SortType.OwnerDescending);
+                }
+                else
+                {
+                    SortRespawnsTable(table, SortType.OwnerAscending);
                 }
             }
         }
@@ -301,7 +299,6 @@ namespace RespawnMenuImprovements
 
             MyGuiControlTable.Row selectedRow = table.SelectedRow;
             sortStatus = type;
-            lastTableSortedTime = DateTime.UtcNow;
             List<MyGuiControlTable.Row> ordered = SortList(table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), type);
             SortInternal();
 
