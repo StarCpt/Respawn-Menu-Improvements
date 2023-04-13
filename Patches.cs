@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using HarmonyLib;
+using Sandbox.Game.Gui;
+using Sandbox.Game.GUI.HudViewers;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Screens.Helpers;
+using Sandbox.Game.Screens.Helpers.RadialMenuActions;
 using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using Sandbox.ModAPI;
@@ -19,15 +21,14 @@ using VRageMath;
 
 namespace RespawnMenuImprovements
 {
-    public class Patches
+    public static class Patches
     {
         private static MyGuiControlSearchBox searchBox = null;
         private static MyGuiControlTable respawnsTable = null;
         private static List<MyGuiControlTable.Row> allRows = null;
-        private static StringBuilder respawnPointTooltip { get; } = new StringBuilder();
+        private static readonly StringBuilder respawnPointTooltip = new StringBuilder();
         private static long m_restrictedRespawn = -1L;
         private static SortType sortStatus = SortType.None;
-        private static DateTime lastTableSortedTime = DateTime.MinValue;
         private static MyGuiControlCombobox playersFilterDropdown = null;
 
         private enum SortType
@@ -39,21 +40,76 @@ namespace RespawnMenuImprovements
             OwnerDescending = 8,
         }
 
-        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
-        public class RecreateControlsRespawnPatch
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControls")]
+        public static class Patch_MyGuiScreenMedicals_RecreateControls
         {
-            public static void Postfix(MyGuiScreenMedicals __instance)
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlButton ___m_MotdButton)
             {
-                //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
+                float buttonPosY = __instance.Size.Value.Y / 2f - 0.153f;
+
+                __instance.Controls.Remove(___m_MotdButton);
+                ___m_MotdButton.Size = new Vector2((0.36f / 3f * 2f) - 0.004f, 0.035f);
+                ___m_MotdButton.Position = new Vector2(0.002f - ((0.36f - ___m_MotdButton.Size.X) / 2f), buttonPosY);
+                __instance.Controls.Add(___m_MotdButton);
+
+                Vector2 chatBtnSize = new Vector2(0.36f / 3f, 0.035f);
+                Vector2 chatBtnPos = new Vector2(0.0015f + ((0.36f - chatBtnSize.X) / 2f), buttonPosY);
+
+                MyGuiControlButton chatBtn = new MyGuiControlButton(
+                    chatBtnPos,
+                    MyGuiControlButtonStyleEnum.Rectangular,
+                    chatBtnSize,
+                    null,
+                    VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                    null,
+                    new StringBuilder(MyTexts.GetString(MySpaceTexts.ControlMenuItemLabel_Chat)),
+                    0.8f,
+                    VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                    MyGuiControlHighlightType.WHEN_CURSOR_OVER,
+                    (btn) => ShowChatInput());
+                __instance.Controls.Add(chatBtn);
+
+                Vector2 hudPos1 = new Vector2(0.014f, 0.81f);
+                Vector2 hudPos2 = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos1);
+                Vector2 chatControlPos = hudPos2 + new Vector2(1f / 500f, -0.07f) - __instance.GetPositionAbsolute();
+
+                MyHudControlChat chat = new MyHudControlChat(MyHud.Chat, chatControlPos, new Vector2(0.339f, 0.75f), textScale: 0.7f);
+                chat.MouseOverChanged += Chat_MouseOverChanged;
+                __instance.Controls.Add(chat);
+            }
+
+            static void ShowChatInput()
+            {
+                new MyActionChat().OpenChatScreen();
+            }
+
+            static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
+            {
+                if (isMouseOver)
+                    MyHud.Chat.ChatOpened();
+                else
+                    MyHud.Chat.ChatClosed();
+            }
+        }
+
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
+        public static class Patch_MyGuiScreenMedicals_RecreateControlsRespawn
+        {
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlTable ___m_respawnsTable)
+            {
                 searchBox = new MyGuiControlSearchBox(new Vector2(-0.0745f, 0.244f), new Vector2(0.21f, 0f));
                 searchBox.OnTextChanged += OnSearchBoxTextChanged;
 
                 __instance.Controls.Add(searchBox);
+
+                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
+                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
             }
         }
 
         [HarmonyPatch]
-        public class AddRespawnPointsPatch
+        public static class Patch_MyGuiScreenMedicals_RefreshMedicalRooms_AddMedicalRespawnPoints
         {
             public static MethodBase TargetMethod()
             {
@@ -65,9 +121,7 @@ namespace RespawnMenuImprovements
             {
                 respawnsTable = ___m_respawnsTable;
                 m_restrictedRespawn = ___m_restrictedRespawn;
-                ___m_respawnsTable.ItemMouseOver += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ItemFocus += OnRespawnTableItemMouseOver;
-                ___m_respawnsTable.ColumnClicked += OnRespawnTableColumnClicked;
+                
                 if (___m_respawnsTable.RowsCount > 0)
                 {
                     allRows = SortList(___m_respawnsTable.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), sortStatus != SortType.None ? sortStatus : SortType.NameAscending);
@@ -134,7 +188,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "OnClosed")]
-        public class OnClosedPatch
+        public static class Patch_MyGuiScreenMedicals_OnClosed
         {
             public static void Postfix()
             {
@@ -160,7 +214,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RespawnAtMedicalRoom")]
-        public class RespawnAtMedicalRoomPatch
+        public static class Patch_MyGuiScreenMedicals_RespawnAtMedicalRoom
         {
             public static void Postfix(MyGuiScreenMedicals __instance)
             {
@@ -212,29 +266,26 @@ namespace RespawnMenuImprovements
 
         private static void OnRespawnTableColumnClicked(MyGuiControlTable table, int columnIndex)
         {
-            if ((DateTime.UtcNow - lastTableSortedTime).TotalMilliseconds > 10)
+            if (columnIndex == 0)
             {
-                if (columnIndex == 0)
+                if (sortStatus == SortType.NameAscending)
                 {
-                    if (sortStatus == SortType.NameAscending)
-                    {
-                        SortRespawnsTable(table, SortType.NameDescending);
-                    }
-                    else
-                    {
-                        SortRespawnsTable(table, SortType.NameAscending);
-                    }
+                    SortRespawnsTable(table, SortType.NameDescending);
                 }
-                else if (columnIndex == 1)
+                else
                 {
-                    if (sortStatus == SortType.OwnerAscending)
-                    {
-                        SortRespawnsTable(table, SortType.OwnerDescending);
-                    }
-                    else
-                    {
-                        SortRespawnsTable(table, SortType.OwnerAscending);
-                    }
+                    SortRespawnsTable(table, SortType.NameAscending);
+                }
+            }
+            else if (columnIndex == 1)
+            {
+                if (sortStatus == SortType.OwnerAscending)
+                {
+                    SortRespawnsTable(table, SortType.OwnerDescending);
+                }
+                else
+                {
+                    SortRespawnsTable(table, SortType.OwnerAscending);
                 }
             }
         }
@@ -248,7 +299,6 @@ namespace RespawnMenuImprovements
 
             MyGuiControlTable.Row selectedRow = table.SelectedRow;
             sortStatus = type;
-            lastTableSortedTime = DateTime.UtcNow;
             List<MyGuiControlTable.Row> ordered = SortList(table.Rows.Where(i => i.UserData is MySpaceRespawnComponent.MyRespawnPointInfo), type);
             SortInternal();
 
@@ -395,6 +445,5 @@ namespace RespawnMenuImprovements
                 btn.Enabled = false;
             }
         }
-
     }
 }
