@@ -9,6 +9,7 @@ using Sandbox.Game.GUI.HudViewers;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Screens.Helpers;
+using Sandbox.Game.Screens.Helpers.RadialMenuActions;
 using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using Sandbox.ModAPI;
@@ -48,7 +49,7 @@ namespace RespawnMenuImprovements
                 float buttonPosY = __instance.Size.Value.Y / 2f - 0.153f;
 
                 __instance.Controls.Remove(___m_MotdButton);
-                ___m_MotdButton.Size = new Vector2((0.36f / 3f * 2f) - 0.003f, 0.035f);
+                ___m_MotdButton.Size = new Vector2((0.36f / 3f * 2f) - 0.004f, 0.035f);
                 ___m_MotdButton.Position = new Vector2(0.002f - ((0.36f - ___m_MotdButton.Size.X) / 2f), buttonPosY);
                 __instance.Controls.Add(___m_MotdButton);
 
@@ -62,7 +63,7 @@ namespace RespawnMenuImprovements
                     null,
                     VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                     null,
-                    new StringBuilder("Open Chat"),
+                    new StringBuilder(MyTexts.GetString(MySpaceTexts.ControlMenuItemLabel_Chat)),
                     0.8f,
                     VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
                     MyGuiControlHighlightType.WHEN_CURSOR_OVER,
@@ -80,19 +81,11 @@ namespace RespawnMenuImprovements
 
             static void ShowChatInput()
             {
-                Vector2 hudPos = new Vector2(0.029f, 0.80f);
-                hudPos = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos);
-
-                Type type = Type.GetType("Sandbox.Game.Gui.MyGuiScreenChat, Sandbox.Game, Version=0.1.1.0, Culture=neutral, PublicKeyToken=null", true);
-                ConstructorInfo ctor = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public)[0];
-                object screen = ctor.Invoke(new object[] { hudPos });
-
-                MyGuiSandbox.AddScreen(screen as MyGuiScreenBase);
+                new MyActionChat().OpenChatScreen();
             }
 
             static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
             {
-                MyAPIGateway.Utilities.ShowMessage("Chat_MouseOverChanged", isMouseOver.ToString());
                 if (isMouseOver)
                     MyHud.Chat.ChatOpened();
                 else
@@ -113,7 +106,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch]
-        public static class Patch_MyGuiScreenMedicals_RefreshMedicalRooms_AddRespawnPoints
+        public static class Patch_MyGuiScreenMedicals_RefreshMedicalRooms_AddMedicalRespawnPoints
         {
             public static MethodBase TargetMethod()
             {
@@ -455,6 +448,5 @@ namespace RespawnMenuImprovements
                 btn.Enabled = false;
             }
         }
-
     }
 }
