@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using HarmonyLib;
+using Sandbox.Game.Gui;
+using Sandbox.Game.GUI.HudViewers;
 using Sandbox.Game.Localization;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Screens.Helpers;
@@ -19,7 +20,7 @@ using VRageMath;
 
 namespace RespawnMenuImprovements
 {
-    public class Patches
+    public static class Patches
     {
         private static MyGuiControlSearchBox searchBox = null;
         private static MyGuiControlTable respawnsTable = null;
@@ -39,12 +40,71 @@ namespace RespawnMenuImprovements
             OwnerDescending = 8,
         }
 
+        [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControls")]
+        public static class Patch_MyGuiScreenMedicals_RecreateControls
+        {
+            public static void Postfix(MyGuiScreenMedicals __instance, MyGuiControlButton ___m_MotdButton)
+            {
+                float buttonPosY = __instance.Size.Value.Y / 2f - 0.153f;
+
+                __instance.Controls.Remove(___m_MotdButton);
+                ___m_MotdButton.Size = new Vector2((0.36f / 3f * 2f) - 0.003f, 0.035f);
+                ___m_MotdButton.Position = new Vector2(0.002f - ((0.36f - ___m_MotdButton.Size.X) / 2f), buttonPosY);
+                __instance.Controls.Add(___m_MotdButton);
+
+                Vector2 chatBtnSize = new Vector2(0.36f / 3f, 0.035f);
+                Vector2 chatBtnPos = new Vector2(0.0015f + ((0.36f - chatBtnSize.X) / 2f), buttonPosY);
+
+                MyGuiControlButton chatBtn = new MyGuiControlButton(
+                    chatBtnPos,
+                    MyGuiControlButtonStyleEnum.Rectangular,
+                    chatBtnSize,
+                    null,
+                    VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                    null,
+                    new StringBuilder("Open Chat"),
+                    0.8f,
+                    VRage.Utils.MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_CENTER,
+                    MyGuiControlHighlightType.WHEN_CURSOR_OVER,
+                    (btn) => ShowChatInput());
+                __instance.Controls.Add(chatBtn);
+
+                Vector2 hudPos1 = new Vector2(0.014f, 0.81f);
+                Vector2 hudPos2 = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos1);
+                Vector2 chatControlPos = hudPos2 + new Vector2(1f / 500f, -0.07f) - __instance.GetPositionAbsolute();
+
+                MyHudControlChat chat = new MyHudControlChat(MyHud.Chat, chatControlPos, new Vector2(0.339f, 0.75f), textScale: 0.7f);
+                chat.MouseOverChanged += Chat_MouseOverChanged;
+                __instance.Controls.Add(chat);
+            }
+
+            static void ShowChatInput()
+            {
+                Vector2 hudPos = new Vector2(0.029f, 0.80f);
+                hudPos = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos);
+
+                Type type = Type.GetType("Sandbox.Game.Gui.MyGuiScreenChat, Sandbox.Game, Version=0.1.1.0, Culture=neutral, PublicKeyToken=null", true);
+                ConstructorInfo ctor = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public)[0];
+                object screen = ctor.Invoke(new object[] { hudPos });
+
+                MyGuiSandbox.AddScreen(screen as MyGuiScreenBase);
+            }
+
+            static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Chat_MouseOverChanged", isMouseOver.ToString());
+                if (isMouseOver)
+                    MyHud.Chat.ChatOpened();
+                else
+                    MyHud.Chat.ChatClosed();
+            }
+        }
+
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RecreateControlsRespawn")]
-        public class RecreateControlsRespawnPatch
+        public static class Patch_MyGuiScreenMedicals_RecreateControlsRespawn
         {
             public static void Postfix(MyGuiScreenMedicals __instance)
             {
-                //searchBox = new MyGuiControlSearchBox(new Vector2(0f, 0.244f), new Vector2(0.3593f, 0f));
                 searchBox = new MyGuiControlSearchBox(new Vector2(-0.0745f, 0.244f), new Vector2(0.21f, 0f));
                 searchBox.OnTextChanged += OnSearchBoxTextChanged;
 
@@ -53,7 +113,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch]
-        public class AddRespawnPointsPatch
+        public static class Patch_MyGuiScreenMedicals_RefreshMedicalRooms_AddRespawnPoints
         {
             public static MethodBase TargetMethod()
             {
@@ -134,7 +194,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "OnClosed")]
-        public class OnClosedPatch
+        public static class Patch_MyGuiScreenMedicals_OnClosed
         {
             public static void Postfix()
             {
@@ -160,7 +220,7 @@ namespace RespawnMenuImprovements
         }
 
         [HarmonyPatch(typeof(MyGuiScreenMedicals), "RespawnAtMedicalRoom")]
-        public class RespawnAtMedicalRoomPatch
+        public static class Patch_MyGuiScreenMedicals_RespawnAtMedicalRoom
         {
             public static void Postfix(MyGuiScreenMedicals __instance)
             {
