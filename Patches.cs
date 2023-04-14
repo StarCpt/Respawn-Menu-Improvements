@@ -81,6 +81,7 @@ namespace RespawnMenuImprovements
             static void ShowChatInput()
             {
                 new MyActionChat().OpenChatScreen();
+                MyHud.Chat.Update();
             }
 
             static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
