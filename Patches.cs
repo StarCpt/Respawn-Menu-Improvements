@@ -30,6 +30,16 @@ namespace RespawnMenuImprovements
         private static long m_restrictedRespawn = -1L;
         private static SortType sortStatus = SortType.None;
         private static MyGuiControlCombobox playersFilterDropdown = null;
+        static MyHudControlChat chatHistoryControl = null;
+        static Vector2 chatControlPos
+        {
+            get
+            {
+                Vector2 hudPos1 = new Vector2(0.014f, 0.81f);
+                Vector2 hudPos2 = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos1);
+                return hudPos2 + new Vector2(1f / 500f, -0.07f);
+            }
+        }
 
         private enum SortType
         {
@@ -69,27 +79,22 @@ namespace RespawnMenuImprovements
                     (btn) => ShowChatInput());
                 __instance.Controls.Add(chatBtn);
 
-                Vector2 hudPos1 = new Vector2(0.014f, 0.81f);
-                Vector2 hudPos2 = MyGuiScreenHudBase.ConvertHudToNormalizedGuiPosition(ref hudPos1);
-                Vector2 chatControlPos = hudPos2 + new Vector2(1f / 500f, -0.07f) - __instance.GetPositionAbsolute();
-
-                MyHudControlChat chat = new MyHudControlChat(MyHud.Chat, chatControlPos, new Vector2(0.339f, 0.75f), textScale: 0.7f);
-                chat.MouseOverChanged += Chat_MouseOverChanged;
-                __instance.Controls.Add(chat);
+                chatHistoryControl = MyHud.Chat.ChatControl ?? new MyHudControlChat(MyHud.Chat, textScale: 0.7f);
+                chatHistoryControl.Position = chatControlPos - __instance.GetPositionAbsolute();
+                chatHistoryControl.Size = new Vector2(0.339f, 0.75f);
+                chatHistoryControl.MouseOverChanged += Chat_MouseOverChanged;
+                //ultra jank way to ensure chat is visible
+                chatHistoryControl.Visibility = MyHudControlChat.MyChatVisibilityEnum.AlwaysVisible;
+                MyHud.Chat.ChatOpened();
+                MyHud.Chat.Update();
+                MyHud.Chat.ChatClosed();
+                __instance.Controls.Add(chatHistoryControl);
             }
 
             static void ShowChatInput()
             {
                 new MyActionChat().OpenChatScreen();
                 MyHud.Chat.Update();
-            }
-
-            static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
-            {
-                if (isMouseOver)
-                    MyHud.Chat.ChatOpened();
-                else
-                    MyHud.Chat.ChatClosed();
             }
         }
 
@@ -211,6 +216,16 @@ namespace RespawnMenuImprovements
                 playersFilterDropdown = null;
                 respawnPointTooltip.Clear();
 
+                if (chatHistoryControl != null)
+                {
+                    chatHistoryControl.Position = chatControlPos;
+                    chatHistoryControl.Size = new Vector2(0.339f, 0.28f);
+                    chatHistoryControl.MouseOverChanged -= Chat_MouseOverChanged;
+                    chatHistoryControl.Visibility = MyHudControlChat.MyChatVisibilityEnum.AlwaysVisible;
+                    MyHud.Chat.ChatOpened();
+                    MyHud.Chat.Update();
+                    MyHud.Chat.ChatClosed();
+                }
             }
         }
 
@@ -226,6 +241,14 @@ namespace RespawnMenuImprovements
                 __instance.AddControl(new MyGuiControlButton(new Vector2(-0.09f, (float)(m_size.Y / 2.0 - 0.100000001490116)), toolTip: "Try to forcibly close the respawn menu\nand set the camera to your character", text: MyTexts.Get(MySpaceTexts.DetailScreen_Button_Close), onButtonClick: OnAbortBtnClick));
                 //__instance.AddControl(new MyGuiControlButton(new Vector2(0.095f, (float)(m_size.Y / 2.0 - 0.100000001490116)), text: new StringBuilder("Refresh")));
             }
+        }
+
+        private static void Chat_MouseOverChanged(MyGuiControlBase control, bool isMouseOver)
+        {
+            if (isMouseOver)
+                MyHud.Chat.ChatOpened();
+            else
+                MyHud.Chat.ChatClosed();
         }
 
         private static void OnSearchBoxTextChanged(string newText)
