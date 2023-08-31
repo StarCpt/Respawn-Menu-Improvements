@@ -30,7 +30,8 @@ namespace RespawnMenuImprovements
         private static long m_restrictedRespawn = -1L;
         private static SortType sortStatus = SortType.None;
         private static MyGuiControlCombobox playersFilterDropdown = null;
-        static MyHudControlChat chatHistoryControl = null;
+        private static MyHudControlChat chatHistoryControl = null;
+        private static Vector2 originalChatSize = new Vector2(0.339f, 0.28f);
         static Vector2 chatControlPos
         {
             get
@@ -81,6 +82,7 @@ namespace RespawnMenuImprovements
 
                 chatHistoryControl = MyHud.Chat.ChatControl ?? new MyHudControlChat(MyHud.Chat, textScale: 0.7f);
                 chatHistoryControl.Position = chatControlPos - __instance.GetPositionAbsolute();
+                originalChatSize = chatHistoryControl.Size;
                 chatHistoryControl.Size = new Vector2(0.339f, 0.75f);
                 chatHistoryControl.MouseOverChanged += Chat_MouseOverChanged;
                 //ultra jank way to ensure chat is visible
@@ -219,7 +221,7 @@ namespace RespawnMenuImprovements
                 if (chatHistoryControl != null)
                 {
                     chatHistoryControl.Position = chatControlPos;
-                    chatHistoryControl.Size = new Vector2(0.339f, 0.28f);
+                    chatHistoryControl.Size = originalChatSize;
                     chatHistoryControl.MouseOverChanged -= Chat_MouseOverChanged;
                     chatHistoryControl.Visibility = MyHudControlChat.MyChatVisibilityEnum.AlwaysVisible;
                     MyHud.Chat.ChatOpened();
